@@ -33,6 +33,7 @@ export default function TextField({
   };
   const pressEnter = ev => {
     if (ev.key === 'Enter' && !ev.nativeEvent.isComposing) {
+      // IME 조합 중이 아닐 때만 엔터키 처리
       ev.preventDefault();
       onEnter?.(value);
     }
