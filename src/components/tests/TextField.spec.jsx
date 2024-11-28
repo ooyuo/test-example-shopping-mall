@@ -140,7 +140,7 @@ describe('TextField', () => {
 
     it('포커스가 활성화되면 onFocus prop으로 등록한 함수가 호출된다', async () => {
       const handleFocus = vi.fn();
-      const { textInput } = await setup({ onFocus: handleFocus }); // 'onFocus'로 수정 (onfocus -> onFocus)
+      const { textInput } = await setup({ onFocus: handleFocus });
 
       fireEvent.focus(textInput);
 
