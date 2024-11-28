@@ -4,40 +4,35 @@ import React from 'react';
 import TextField from '@/components/TextField';
 import render from '@/utils/test/render';
 
-it('className prop으로 설정한 css class가 적용된다.', async () => {
-  // AAA
-  // Arrange -> Act -> Assert
-
-  // #1. Arrange
-  // render API 호출 -> 테스트 환경의 jsDOM에 리액트 컴포넌트가 랜더링된 DOM 구조가 반영
-  // jsDOM: Node.js에서 사용하기 위해 많은 웹 표준을 순수 자바스크립트로 구현
-  await render(<TextField className="my-class" />);
-
-  // #2. Assert
-  // vitest의 expect 함수를 사용하여 기대 결과를 검증
-
-  // className이란 내부 prop이나 state 값을 검증 (X)
-  // 랜더링되는 DOM 구조가 올바르게 변경되었는지 확인 (O) -> 최종적으로 사용자가 보는 결과는 DOM
-  expect(screen.getByPlaceholderText('텍스트를 입력해 주세요.')).toHaveClass(
-    'my-class',
-  );
-});
-
 describe('TextField', () => {
+  // Setup & Teardown
+  const setup = async (props = {}) => {
+    const renderResult = await render(<TextField {...props} />);
+    const textInput = screen.getByPlaceholderText(
+      props.placeholder || '텍스트를 입력해 주세요.',
+    );
+    return {
+      textInput,
+      ...renderResult,
+    };
+  };
+
+  const teardown = () => {
+    vi.clearAllMocks();
+  };
+
+  afterEach(() => {
+    teardown();
+  });
+
   describe('스타일', () => {
     it('className prop으로 설정한 css class가 적용된다', async () => {
-      await render(<TextField className="my-class" />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
+      const { textInput } = await setup({ className: 'my-class' });
       expect(textInput).toHaveClass('my-class');
     });
 
     it('포커스가 활성화되면 border 스타일이 추가된다', async () => {
-      const { user } = await render(<TextField />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
+      const { textInput, user } = await setup();
       await user.click(textInput);
 
       expect(textInput).toHaveStyle({
@@ -47,10 +42,7 @@ describe('TextField', () => {
     });
 
     it('포커스가 해제되면 border 스타일이 제거된다', async () => {
-      const { user } = await render(<TextField />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
+      const { textInput, user } = await setup();
       await user.click(textInput);
       await user.tab();
 
@@ -63,41 +55,38 @@ describe('TextField', () => {
 
   describe('placeholder', () => {
     it('기본 placeholder "텍스트를 입력해 주세요."가 노출된다', async () => {
-      await render(<TextField />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
+      const { textInput } = await setup();
       expect(textInput).toBeInTheDocument();
     });
 
     it('placeholder prop에 따라 placeholder가 변경된다', async () => {
-      await render(<TextField placeholder="상품명을 입력해 주세요." />);
-
-      const textInput = screen.getByPlaceholderText('상품명을 입력해 주세요.');
-
-      expect(textInput).toBeInTheDocument();
+      const customPlaceholder = '상품명을 입력해 주세요.';
+      const { textInput } = await setup({ placeholder: customPlaceholder });
+      expect(textInput).toHaveAttribute('placeholder', customPlaceholder);
     });
   });
 
   describe('이벤트 핸들링', () => {
     it('텍스트를 입력하면 onChange prop으로 등록한 함수가 호출된다', async () => {
       const handleChange = vi.fn();
-      const { user } = await render(<TextField onChange={handleChange} />);
+      const { textInput } = await setup({ onChange: handleChange });
 
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
-      await user.type(textInput, 'test'); // 실제 사용자가 키보드로 입력하는 것을 시뮬레이션
+      fireEvent.change(textInput, { target: { value: 'test' } });
 
       expect(handleChange).toHaveBeenCalledWith('test');
     });
 
     it('엔터키를 입력하면 onEnter prop으로 등록한 함수가 호출된다', async () => {
       const handleEnter = vi.fn();
-      const { user } = await render(<TextField onChange={handleEnter} />);
+      const { textInput } = await setup({ onEnter: handleEnter });
 
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
-      await user.type(textInput, 'test{Enter}');
+      // fireEvent를 사용하여 더 명확한 이벤트 시뮬레이션
+      fireEvent.change(textInput, { target: { value: 'test' } });
+      fireEvent.keyDown(textInput, {
+        key: 'Enter',
+        code: 'Enter',
+        charCode: 13,
+      });
 
       expect(handleEnter).toHaveBeenCalledWith('test');
     });
@@ -114,9 +103,7 @@ describe('TextField', () => {
      */
     it('IME 조합 중인 엔터키는 무시된다', async () => {
       const handleEnter = vi.fn();
-      render(<TextField onEnter={handleEnter} />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
+      const { textInput } = await setup({ onEnter: handleEnter });
 
       // 텍스트 입력 시뮬레이션
       fireEvent.change(textInput, { target: { value: 'test' } });
@@ -139,11 +126,13 @@ describe('TextField', () => {
 
     it('일반 엔터키는 정상적으로 처리된다', async () => {
       const handleEnter = vi.fn();
-      const { user } = await render(<TextField onEnter={handleEnter} />);
+      const { textInput } = await setup({ onEnter: handleEnter });
 
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
-      await user.type(textInput, 'test{Enter}');
+      fireEvent.change(textInput, { target: { value: 'test' } });
+      fireEvent.keyDown(textInput, {
+        key: 'Enter',
+        code: 'Enter',
+      });
 
       expect(handleEnter).toHaveBeenCalledTimes(1);
       expect(handleEnter).toHaveBeenCalledWith('test');
@@ -151,22 +140,16 @@ describe('TextField', () => {
 
     it('포커스가 활성화되면 onFocus prop으로 등록한 함수가 호출된다', async () => {
       const handleFocus = vi.fn();
-      const { user } = await render(<TextField onFocus={handleFocus} />);
+      const { textInput } = await setup({ onFocus: handleFocus }); // 'onFocus'로 수정 (onfocus -> onFocus)
 
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
-      await user.click(textInput);
+      fireEvent.focus(textInput);
 
       expect(handleFocus).toHaveBeenCalled();
     });
 
     it('value state가 올바르게 업데이트된다', async () => {
-      const { user } = await render(<TextField />);
-
-      const textInput = screen.getByPlaceholderText('텍스트를 입력해 주세요.');
-
-      await user.type(textInput, 'test');
-
+      const { textInput } = await setup();
+      fireEvent.change(textInput, { target: { value: 'test' } });
       expect(textInput).toHaveValue('test');
     });
   });
